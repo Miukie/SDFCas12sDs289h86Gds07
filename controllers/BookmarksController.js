@@ -8,11 +8,10 @@ class BookmarksController extends require('./Controller') {
     super(req, res);
     this.bookmarksRepository = new Repository('Bookmarks');
   }
-  // GET: api/contacts
-  // GET: api/contacts/{id}
+
   get(id){
     const reqUrl =  url.parse(this.req.url, true);
-    const availableOperations = [
+    const singleBookmarkOperations = [
       {
         "Retourne le signet portant ce nom (GET)": "/api/bookmarks?name=nom",
         "Retourne le signet avec cet id (GET)": "/api/bookmarks/id",
@@ -23,31 +22,46 @@ class BookmarksController extends require('./Controller') {
     ]
     let bookmarks = [];
 
+    // /api/bookmarks?
     if(reqUrl.search === "?"){
-      this.response.JSON(availableOperations);
+      this.response.JSON(singleBookmarkOperations);
       return;
     }
 
+    // /api/bookmarks/id
     if(!isNaN(id)){
-      this.response.JSON(this.bookmarksRepository.get(id));
-      return;
+      let bookmark = this.bookmarksRepository.get(id);
+
+      if(bookmark != null){
+        this.response.JSON(bookmark);
+        return;
+      }
+
+      const jsonObj = utilities.createJsonErrorBody(
+        "Aucun signet avec cet Id existe.",
+        404
+      )
+      this.response.JSONError(jsonObj,404);
     }
-    else
-      bookmarks = this.bookmarksRepository.getAll();
+
+    bookmarks = this.bookmarksRepository.getAll();
 
     let foundParam = 0;
     let nbParam = Object.keys(reqUrl.query).length;
 
+    // /api/bookmarks?name="nom" et /api/bookmarks?name="ab*" 
     if(reqUrl.query.name){
       bookmarks = this.searchByName(reqUrl.query.name, bookmarks);
       foundParam++;
     }
 
+    // /api/bookmarks?category="sport"
     if(reqUrl.query.category){
       bookmarks = this.searchByCategory(reqUrl.query.category, bookmarks);
       foundParam++;
     }
 
+    // /api/bookmarks?sort="name" et /api/bookmarks?sort="category"
     if(reqUrl.query.sort){
       bookmarks = this.sort(reqUrl.query.sort, bookmarks);
       foundParam++;
@@ -75,11 +89,8 @@ class BookmarksController extends require('./Controller') {
 
   sort(sortParam, bookmarks){
     // On vérifie s'il y a plusieurs paramètres à utiliser pour le tri.
-    if(!Array.isArray(sortParam)){
-      let temp = sortParam;
-      sortParam = [];
-      sortParam.push(temp);
-    }
+    if(!Array.isArray(sortParam))
+      sortParam = [sortParam];
 
     let nbParam = sortParam.length;
     for (let i = 0; i < nbParam; i++) {
@@ -120,6 +131,7 @@ class BookmarksController extends require('./Controller') {
   searchByName(name, bookmarks)
   {
     name = utilities.removeSeparatorAndWhiteSpace(name);
+
     let foundBookmarks = [];
 
     if(name.includes("*")){
@@ -128,37 +140,39 @@ class BookmarksController extends require('./Controller') {
       for(let bookmark of bookmarks){
         // On veut que la recherche ne soit pas dépendante des majuscules et minuscules,
         // donc on transforme tout en minuscules avant de comparer.
-        if (bookmark.Name.toLowerCase().startsWith(name)) {
+        if (bookmark.Name.toLowerCase().startsWith(name.toLowerCase())) {
           foundBookmarks.push(bookmark);
         }
       }
+      return foundBookmarks;
     }
-    else{
-      // Recherche du nom exact.
-      for(let bookmark of bookmarks){
-        // On veut que la recherche ne soit pas dépendante des majuscules et minuscules,
-        // donc on transforme tout en minuscules avant de comparer.
-        if (bookmark.Name.toLowerCase() === name.toLowerCase()) {
-          foundBookmarks.push(bookmark);
-        }
+
+    // Recherche du nom exact.
+    for(let bookmark of bookmarks){
+      // On veut que la recherche ne soit pas dépendante des majuscules et minuscules,
+      // donc on transforme tout en minuscules avant de comparer.
+      if (bookmark.Name.toLowerCase() === name.toLowerCase()) {
+        // Comme les noms sont uniques, on peut quitter la boucle dès qu'on trouve le signet.
+        foundBookmarks.push(bookmark);
+        break;
       }
     }
+
     return foundBookmarks;
   }
 
   searchByCategory(category, bookmarks){
     category = utilities.removeSeparatorAndWhiteSpace(category);
 
-    let newBookmarks = [];
+    let foundBookmarks = [];
     for(let bookmark of bookmarks){
       if(bookmark.Category.toLowerCase() === category.toLowerCase()){
-        newBookmarks.push(bookmark)
+        foundBookmarks.push(bookmark)
       }
     }
-    return newBookmarks;
+    return foundBookmarks;
   }
 
-  // POST: api/contacts body payload[{"Id": 0, "Name": "...", "Email": "...", "Phone": "..."}]
   post(bookmark){
     // Validate contact before insertion and avoid duplicates
     if(!this.validateBookmark(bookmark,"post")){
@@ -175,7 +189,7 @@ class BookmarksController extends require('./Controller') {
       this.response.JSONError(jsonObj,500);
     }
   }
-  // PUT: api/contacts body payload[{"Id":..., "Name": "...", "Email": "...", "Phone": "..."}]
+
   put(bookmark){
     // Validate contact before insertion and avoid duplicates
     if(!this.validateBookmark(bookmark,"put")){
@@ -191,7 +205,7 @@ class BookmarksController extends require('./Controller') {
       this.response.JSONError(jsonObj,404);
     }
   }
-  // DELETE: api/contacts/{id}
+
   remove(id){
     if (this.bookmarksRepository.remove(id))
       this.response.accepted();
@@ -229,6 +243,10 @@ class BookmarksController extends require('./Controller') {
       // Pour l'update, on veut permettre de garder le même nom, donc on doit vérifier que si le nom existe déjà,
       // est-ce que c'est le nom du signet qu'on veut modifier.
       let currentBookmark = this.bookmarksRepository.get(bookmark.Id);
+      //Si le signet avec ce id n'existe pas, on sort de la fonction et la méthode put va avertir le client
+      if(currentBookmark == null)
+        return true;
+
       if(foundBookmarks.length > 1)
         nameDuplicate = true;
       else if(foundBookmarks.length == 1 && foundBookmarks[0].Name != currentBookmark.Name)

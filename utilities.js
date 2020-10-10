@@ -14,7 +14,6 @@ exports.removeSeparatorAndWhiteSpace = (requestParam) => {
     // S'il y a d'autre espace blanc après les séparateurs.
     requestParam = requestParam.trim();
   }
-
   return requestParam;
 }
 

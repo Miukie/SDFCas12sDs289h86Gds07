@@ -1,7 +1,7 @@
 //////////////////////////////////////////////////////////////////////////////
 // Uncomment to create and fill with data ./contacts.json file
 // let Contacts = require('./models/initContacts.js');
-// Contacts.initContacts(); 
+// Contacts.initContacts();
 ///////////////////////////////////////////////////////////////////////////////
 
 function ShowRequestInfo(req){
@@ -44,7 +44,8 @@ require('http').createServer((req, res) => {
     if (!CORS_Prefligth(req, res)) {
         if (!API_Endpoint(req, res)) {
             // do something else with request
-            notFound(res);
+            // J'ai mis la ligne suivante en commentaire car elle plantait le serveur lorsque l'id n'était pas un nombre.
+            //notFound(res);
         }
     }
 }).listen(PORT, () => console.log(`HTTP Server running on port ${PORT}...`));

@@ -33,6 +33,7 @@ exports.dispatch_API_EndPoint = function(req, res){
                 // we assume that the data is in the JSON format
                 if (req.headers['content-type'] === "application/json") {
                     let jsonBody = JSON.parse(body);
+                    // on prend le id indiqué dans l'url
                     jsonBody.Id = id;
                     controller[methodName](jsonBody);
                 }
